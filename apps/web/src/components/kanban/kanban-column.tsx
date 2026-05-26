@@ -1,19 +1,31 @@
 "use client";
 
+import { AddTaskForm } from "@/components/kanban/add-task-form";
 import { TaskCard } from "@/components/kanban/task-card";
 import { cn } from "@/lib/utils";
-import type { KanbanColumn } from "@tms/shared";
+import type { KanbanColumn, KanbanTask } from "@tms/shared";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 type KanbanColumnViewProps = {
   column: KanbanColumn;
+  boardId: string;
+  canEdit: boolean;
+  readOnly: boolean;
+  onTaskCreated: (columnId: string, task: KanbanTask) => void;
 };
 
-export function KanbanColumnView({ column }: KanbanColumnViewProps) {
+export function KanbanColumnView({
+  column,
+  boardId,
+  canEdit,
+  readOnly,
+  onTaskCreated,
+}: KanbanColumnViewProps) {
   const { setNodeRef, transform, transition, isDragging } = useSortable({
     id: column.id,
     data: { type: "column", column },
+    disabled: readOnly,
   });
 
   const style = {
@@ -39,10 +51,17 @@ export function KanbanColumnView({ column }: KanbanColumnViewProps) {
         </span>
       </header>
       <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
-        <div className="flex min-h-[12rem] flex-1 flex-col gap-2 p-3">
+        <div className="flex min-h-[8rem] flex-1 flex-col gap-2 p-3">
           {column.tasks.map((task) => (
-            <TaskCard key={task.id} task={task} />
+            <TaskCard key={task.id} task={task} readOnly={readOnly} />
           ))}
+          {canEdit && !readOnly ? (
+            <AddTaskForm
+              boardId={boardId}
+              columnId={column.id}
+              onCreated={(task) => onTaskCreated(column.id, task)}
+            />
+          ) : null}
         </div>
       </SortableContext>
     </section>

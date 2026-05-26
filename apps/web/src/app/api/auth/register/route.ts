@@ -41,6 +41,7 @@ export async function POST(request: Request) {
       const board = await tx.board.create({
         data: {
           name: "Product Launch",
+          description: "Your first project board",
           workspaceId: workspace.id,
           columns: {
             create: [
@@ -50,6 +51,58 @@ export async function POST(request: Request) {
               { title: "Done", order: 3 },
             ],
           },
+        },
+        include: { columns: { orderBy: { order: "asc" } } },
+      });
+
+      const [backlog, inProgress, review, done] = board.columns;
+      if (backlog && inProgress && review && done) {
+        await tx.task.createMany({
+          data: [
+            {
+              title: "Define MVP scope",
+              description: "Align on v1 goals and boundaries.",
+              priority: "HIGH",
+              order: 0,
+              columnId: backlog.id,
+              assigneeId: created.id,
+            },
+            {
+              title: "Design Kanban flows",
+              priority: "MEDIUM",
+              order: 1,
+              columnId: backlog.id,
+            },
+            {
+              title: "Implement drag-and-drop",
+              priority: "URGENT",
+              order: 0,
+              columnId: inProgress.id,
+              assigneeId: created.id,
+            },
+            {
+              title: "Activity feed",
+              priority: "MEDIUM",
+              order: 0,
+              columnId: review.id,
+            },
+            {
+              title: "Welcome to Flowboard",
+              description: "You are all set — start adding tasks.",
+              priority: "LOW",
+              order: 0,
+              columnId: done.id,
+            },
+          ],
+        });
+      }
+
+      await tx.activity.create({
+        data: {
+          boardId: board.id,
+          actorId: created.id,
+          type: "MEMBER_JOINED",
+          message: "joined the workspace",
         },
       });
 

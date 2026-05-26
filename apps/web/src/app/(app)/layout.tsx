@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/layout/app-shell";
 import { getSessionUser } from "@/lib/auth";
+import { getBoardsForUser } from "@/lib/board-data";
 import { redirect } from "next/navigation";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -8,5 +9,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/login");
   }
 
-  return <AppShell user={user}>{children}</AppShell>;
+  const boards = await getBoardsForUser(user.id);
+
+  return (
+    <AppShell
+      user={user}
+      boards={boards.map((b) => ({
+        id: b.id,
+        name: b.name,
+      }))}
+    >
+      {children}
+    </AppShell>
+  );
 }

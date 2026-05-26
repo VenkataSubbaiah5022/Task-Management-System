@@ -22,6 +22,11 @@ export function SiteHeader() {
           <Link href="/register">
             <Button size="sm">Get started</Button>
           </Link>
+          <Link href="/dashboard" className="hidden sm:block">
+            <Button variant="secondary" size="sm">
+              Dashboard
+            </Button>
+          </Link>
         </nav>
       </div>
     </header>

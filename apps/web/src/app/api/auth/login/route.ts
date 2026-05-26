@@ -1,4 +1,5 @@
 import { setSessionCookie, signToken, verifyPassword } from "@/lib/auth";
+import { getFirstBoardId } from "@/lib/board-data";
 import { prisma } from "@tms/db";
 import { loginSchema } from "@tms/shared";
 import { NextResponse } from "next/server";
@@ -24,8 +25,11 @@ export async function POST(request: Request) {
     });
     await setSessionCookie(token);
 
+    const boardId = await getFirstBoardId(user.id);
+
     return NextResponse.json({
       user: { id: user.id, email: user.email, name: user.name, imageUrl: user.imageUrl },
+      boardId,
     });
   } catch {
     return NextResponse.json({ error: "Login failed" }, { status: 500 });

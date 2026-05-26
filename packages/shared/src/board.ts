@@ -3,7 +3,7 @@ import { TaskPriority, type TaskPriority as TaskPriorityType } from "./roles";
 
 export const createBoardSchema = z.object({
   name: z.string().min(2).max(120),
-  workspaceId: z.string().cuid(),
+  description: z.string().max(500).optional(),
 });
 
 export const createTaskSchema = z.object({

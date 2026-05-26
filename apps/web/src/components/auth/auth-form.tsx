@@ -10,6 +10,11 @@ type AuthFormProps = {
   mode: "login" | "register";
 };
 
+type AuthResponse = {
+  error?: string;
+  boardId?: string | null;
+};
+
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -41,12 +46,16 @@ export function AuthForm({ mode }: AuthFormProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = (await res.json()) as { error?: string };
+      const data = (await res.json()) as AuthResponse;
       if (!res.ok) {
         setError(data.error ?? "Something went wrong");
         return;
       }
-      router.push("/dashboard");
+      if (data.boardId) {
+        router.push(`/boards/${data.boardId}`);
+      } else {
+        router.push("/dashboard");
+      }
       router.refresh();
     } catch {
       setError("Network error. Try again.");

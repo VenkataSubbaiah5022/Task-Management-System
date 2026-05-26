@@ -1,7 +1,8 @@
 import { getSessionUser } from "@/lib/auth";
+import { requireBoardAccess } from "@/lib/board-access";
 import { broadcastBoardEvent } from "@/lib/realtime";
 import { prisma } from "@tms/db";
-import { canEditTasks, moveTaskSchema } from "@tms/shared";
+import { moveTaskSchema } from "@tms/shared";
 import { NextResponse } from "next/server";
 
 type RouteContext = { params: Promise<{ boardId: string }> };
@@ -13,32 +14,30 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   const { boardId } = await context.params;
-
-  if (boardId === "demo-product-launch") {
-    return NextResponse.json({ ok: true, demo: true });
+  const access = await requireBoardAccess(boardId, user.id);
+  if (!access) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (!access.canEdit) {
+    return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
   }
 
   try {
     const body = moveTaskSchema.parse(await request.json());
 
-    const board = await prisma.board.findUnique({
-      where: { id: boardId },
-      include: {
-        workspace: {
-          include: {
-            members: { where: { userId: user.id } },
-          },
-        },
-      },
+    const task = await prisma.task.findFirst({
+      where: { id: body.taskId, column: { boardId } },
+      include: { column: { select: { title: true } } },
     });
-
-    if (!board || board.workspace.members.length === 0) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!task) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    const membership = board.workspace.members[0];
-    if (!membership || !canEditTasks(membership.role)) {
-      return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
+    const targetColumn = await prisma.column.findFirst({
+      where: { id: body.targetColumnId, boardId },
+    });
+    if (!targetColumn) {
+      return NextResponse.json({ error: "Invalid column" }, { status: 400 });
     }
 
     await prisma.task.update({
@@ -54,8 +53,7 @@ export async function PATCH(request: Request, context: RouteContext) {
         boardId,
         actorId: user.id,
         type: "TASK_MOVED",
-        message: `moved a task`,
-        metadata: body,
+        message: `moved "${task.title}" to ${targetColumn.title}`,
       },
     });
 

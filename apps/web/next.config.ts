@@ -4,15 +4,13 @@ import { fileURLToPath } from "node:url";
 
 const webRoot = path.dirname(fileURLToPath(import.meta.url));
 const monorepoRoot = path.join(webRoot, "../..");
-const sqliteFile = path.join(monorepoRoot, "packages/db/prisma/dev.db");
-
-/** Absolute path — required because Turbopack breaks import.meta.url in @tms/db */
-const databaseUrl = `file:${sqliteFile.replace(/\\/g, "/")}`;
+const localSqlite = `file:${path.join(monorepoRoot, "packages/db/prisma/dev.db").replace(/\\/g, "/")}`;
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@tms/config", "@tms/shared", "@tms/db"],
+  outputFileTracingRoot: monorepoRoot,
   env: {
-    DATABASE_URL: databaseUrl,
+    DATABASE_URL: process.env.DATABASE_URL ?? localSqlite,
   },
 };
 

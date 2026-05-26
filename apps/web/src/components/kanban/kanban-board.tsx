@@ -15,14 +15,18 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy } from "@dnd-kit/sortable";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { TaskCard } from "./task-card";
 
 type KanbanBoardProps = {
   initialColumns: KanbanColumn[];
-  activities?: ActivityItem[];
+  initialActivities?: ActivityItem[];
   boardId: string;
+  boardName?: string;
+  canEdit?: boolean;
+  readOnly?: boolean;
 };
 
 function findContainer(columns: KanbanColumn[], id: string) {
@@ -30,66 +34,140 @@ function findContainer(columns: KanbanColumn[], id: string) {
   return columns.find((c) => c.tasks.some((t) => t.id === id))?.id;
 }
 
+function prependActivity(items: ActivityItem[], entry: ActivityItem): ActivityItem[] {
+  return [entry, ...items].slice(0, 40);
+}
+
 export function KanbanBoard({
   initialColumns,
-  activities = demoActivities,
+  initialActivities,
   boardId,
+  canEdit = false,
+  readOnly = false,
 }: KanbanBoardProps) {
+  const router = useRouter();
   const [columns, setColumns] = useState(initialColumns);
+  const [activities, setActivities] = useState<ActivityItem[]>(
+    initialActivities ?? (readOnly ? demoActivities : []),
+  );
   const [activeTask, setActiveTask] = useState<KanbanTask | null>(null);
+
+  useEffect(() => {
+    setColumns(initialColumns);
+  }, [initialColumns]);
+
+  useEffect(() => {
+    if (initialActivities) {
+      setActivities(initialActivities);
+    }
+  }, [initialActivities]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const columnIds = useMemo(() => columns.map((c) => c.id), [columns]);
+  const editable = canEdit && !readOnly;
+
+  function handleTaskCreated(columnId: string, task: KanbanTask) {
+    setColumns((prev) =>
+      prev.map((col) =>
+        col.id === columnId ? { ...col, tasks: [...col.tasks, task] } : col,
+      ),
+    );
+    setActivities((prev) =>
+      prependActivity(prev, {
+        id: `local-${Date.now()}`,
+        type: "TASK_CREATED",
+        message: `created "${task.title}"`,
+        createdAt: new Date().toISOString(),
+        actor: { name: "You", imageUrl: null },
+      }),
+    );
+    router.refresh();
+  }
 
   function handleDragStart(event: DragStartEvent) {
     const task = event.active.data.current?.task as KanbanTask | undefined;
     if (task) setActiveTask(task);
   }
 
-  function handleDragEnd(event: DragEndEvent) {
+  async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     setActiveTask(null);
-    if (!over) return;
+    if (!over || !editable) return;
 
     const activeId = String(active.id);
     const overId = String(over.id);
 
+    const sourceColId = findContainer(columns, activeId);
+    const targetColId = findContainer(columns, overId) ?? overId;
+    if (!sourceColId || !targetColId) return;
+
+    const sourceCol = columns.find((c) => c.id === sourceColId);
+    const targetCol = columns.find((c) => c.id === targetColId);
+    if (!sourceCol || !targetCol) return;
+
+    const taskIndex = sourceCol.tasks.findIndex((t) => t.id === activeId);
+    if (taskIndex < 0) return;
+
+    const moved = sourceCol.tasks[taskIndex];
+    if (!moved) return;
+
+    let overTaskIndex =
+      overId === targetColId
+        ? targetCol.tasks.length
+        : targetCol.tasks.findIndex((t) => t.id === overId);
+
+    if (sourceColId === targetColId && overTaskIndex > taskIndex) {
+      overTaskIndex -= 1;
+    }
+
+    const insertAt = overTaskIndex < 0 ? targetCol.tasks.length : overTaskIndex;
+
     setColumns((prev) => {
-      const sourceColId = findContainer(prev, activeId);
-      const targetColId = findContainer(prev, overId) ?? overId;
-      if (!sourceColId || !targetColId || sourceColId === targetColId) {
-        if (sourceColId !== targetColId) return prev;
-      }
-
       const next = prev.map((col) => ({ ...col, tasks: [...col.tasks] }));
-      const sourceCol = next.find((c) => c.id === sourceColId);
-      const targetCol = next.find((c) => c.id === targetColId);
-      if (!sourceCol || !targetCol) return prev;
+      const src = next.find((c) => c.id === sourceColId);
+      const tgt = next.find((c) => c.id === targetColId);
+      if (!src || !tgt) return prev;
 
-      const taskIndex = sourceCol.tasks.findIndex((t) => t.id === activeId);
-      if (taskIndex < 0) return prev;
+      const idx = src.tasks.findIndex((t) => t.id === activeId);
+      if (idx < 0) return prev;
 
-      const [moved] = sourceCol.tasks.splice(taskIndex, 1);
-      if (!moved) return prev;
+      const [item] = src.tasks.splice(idx, 1);
+      if (!item) return prev;
 
-      const overTaskIndex =
+      let pos =
         overId === targetColId
-          ? targetCol.tasks.length
-          : targetCol.tasks.findIndex((t) => t.id === overId);
-      targetCol.tasks.splice(overTaskIndex < 0 ? targetCol.tasks.length : overTaskIndex, 0, moved);
-
-      void fetch(`/api/boards/${boardId}/tasks/move`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          taskId: moved.id,
-          targetColumnId: targetColId,
-          targetOrder: overTaskIndex < 0 ? targetCol.tasks.length - 1 : overTaskIndex,
-        }),
-      }).catch(() => undefined);
+          ? tgt.tasks.length
+          : tgt.tasks.findIndex((t) => t.id === overId);
+      if (sourceColId === targetColId && pos > idx) pos -= 1;
+      tgt.tasks.splice(pos < 0 ? tgt.tasks.length : pos, 0, item);
 
       return next;
     });
+
+    if (readOnly || boardId === "demo-product-launch") return;
+
+    const res = await fetch(`/api/boards/${boardId}/tasks/move`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        taskId: moved.id,
+        targetColumnId: targetColId,
+        targetOrder: insertAt,
+      }),
+    });
+
+    if (res.ok) {
+      setActivities((prev) =>
+        prependActivity(prev, {
+          id: `local-${Date.now()}`,
+          type: "TASK_MOVED",
+          message: `moved "${moved.title}" to ${targetCol.title}`,
+          createdAt: new Date().toISOString(),
+          actor: { name: "You", imageUrl: null },
+        }),
+      );
+      router.refresh();
+    }
   }
 
   return (
@@ -103,7 +181,14 @@ export function KanbanBoard({
         <SortableContext items={columnIds} strategy={horizontalListSortingStrategy}>
           <div className="flex gap-4 overflow-x-auto pb-2">
             {columns.map((column) => (
-              <KanbanColumnView key={column.id} column={column} />
+              <KanbanColumnView
+                key={column.id}
+                column={column}
+                boardId={boardId}
+                canEdit={editable}
+                readOnly={readOnly}
+                onTaskCreated={handleTaskCreated}
+              />
             ))}
           </div>
         </SortableContext>
@@ -112,7 +197,7 @@ export function KanbanBoard({
               <DragOverlay>
                 {activeTask ? (
                   <div className="w-72 rotate-1 opacity-95">
-                    <TaskCard task={activeTask} />
+                    <TaskCard task={activeTask} readOnly={readOnly} />
                   </div>
                 ) : null}
               </DragOverlay>,

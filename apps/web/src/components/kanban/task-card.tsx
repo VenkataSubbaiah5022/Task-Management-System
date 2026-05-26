@@ -17,12 +17,14 @@ const priorityTone = {
 
 type TaskCardProps = {
   task: KanbanTask;
+  readOnly?: boolean;
 };
 
-export function TaskCard({ task }: TaskCardProps) {
+export function TaskCard({ task, readOnly }: TaskCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
     data: { type: "task", task },
+    disabled: readOnly,
   });
 
   const style = {
@@ -41,15 +43,17 @@ export function TaskCard({ task }: TaskCardProps) {
     >
       <div className="mb-2 flex items-start justify-between gap-2">
         <Badge tone={priorityTone[task.priority]}>{task.priority}</Badge>
-        <button
-          type="button"
-          className="cursor-grab rounded p-0.5 text-zinc-500 opacity-0 transition group-hover:opacity-100 hover:text-zinc-300 active:cursor-grabbing"
-          {...attributes}
-          {...listeners}
-          aria-label="Drag task"
-        >
-          <GripVertical className="h-4 w-4" />
-        </button>
+        {!readOnly ? (
+          <button
+            type="button"
+            className="cursor-grab rounded p-0.5 text-zinc-500 opacity-0 transition group-hover:opacity-100 hover:text-zinc-300 active:cursor-grabbing"
+            {...attributes}
+            {...listeners}
+            aria-label="Drag task"
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        ) : null}
       </div>
       <h4 className="text-sm font-medium text-zinc-100">{task.title}</h4>
       {task.description ? (
