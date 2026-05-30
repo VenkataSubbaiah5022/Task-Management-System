@@ -3,6 +3,8 @@ import { getSessionUser } from "@/lib/auth";
 import { getBoardsForUser } from "@/lib/board-data";
 import { redirect } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
   if (!user) {

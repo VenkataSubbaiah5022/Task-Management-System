@@ -1,9 +1,22 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaLibSQL } from "@prisma/adapter-libsql";
 
-function createPrismaClient() {
+function isNextBuild(): boolean {
+  return (
+    process.env.NEXT_PHASE === "phase-production-build" ||
+    process.env.npm_lifecycle_event === "build"
+  );
+}
+
+function createPrismaClient(): PrismaClient {
   const url = process.env.DATABASE_URL;
   const authToken = process.env.TURSO_AUTH_TOKEN;
+
+  if (!url && isNextBuild()) {
+    return new PrismaClient({
+      datasources: { db: { url: "file:./build-stub.db" } },
+    });
+  }
 
   if (url?.startsWith("libsql:")) {
     if (!authToken) {
@@ -39,7 +52,6 @@ function getPrisma(): PrismaClient {
   return globalForPrisma.prisma;
 }
 
-/** Lazy singleton — avoids crashing Next.js build when env is loaded later via Turbo. */
 export const prisma = new Proxy({} as PrismaClient, {
   get(_target, prop, receiver) {
     const client = getPrisma();
