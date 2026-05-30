@@ -1,6 +1,5 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaLibSQL } from "@prisma/adapter-libsql";
-import { createClient } from "@libsql/client";
 
 function createPrismaClient() {
   const url = process.env.DATABASE_URL;
@@ -12,8 +11,7 @@ function createPrismaClient() {
         "TURSO_AUTH_TOKEN is required when DATABASE_URL is a libsql:// URL (set it in Vercel env vars).",
       );
     }
-    const libsql = createClient({ url, authToken });
-    const adapter = new PrismaLibSQL(libsql);
+    const adapter = new PrismaLibSQL({ url, authToken });
     return new PrismaClient({
       adapter,
       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
