@@ -1,39 +1,17 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaLibSQL } from "@prisma/adapter-libsql";
 import { createClient } from "@libsql/client";
-import { existsSync } from "node:fs";
-import path from "node:path";
-
-function resolveLocalDatabaseUrl(): string {
-  const url = process.env.DATABASE_URL;
-
-  if (url?.startsWith("file:")) {
-    const filePath = url.slice("file:".length);
-    const normalized = filePath.replace(/\//g, path.sep);
-    if (path.isAbsolute(normalized) && existsSync(normalized)) {
-      return `file:${normalized.replace(/\\/g, "/")}`;
-    }
-  }
-
-  const candidates = [
-    path.resolve(process.cwd(), "packages/db/prisma/dev.db"),
-    path.resolve(process.cwd(), "../../packages/db/prisma/dev.db"),
-  ];
-
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) {
-      return `file:${candidate.replace(/\\/g, "/")}`;
-    }
-  }
-
-  return `file:${candidates[1]!.replace(/\\/g, "/")}`;
-}
 
 function createPrismaClient() {
   const url = process.env.DATABASE_URL;
   const authToken = process.env.TURSO_AUTH_TOKEN;
 
   if (url?.startsWith("libsql:")) {
+    if (!authToken) {
+      throw new Error(
+        "TURSO_AUTH_TOKEN is required when DATABASE_URL is a libsql:// URL (set it in Vercel env vars).",
+      );
+    }
     const libsql = createClient({ url, authToken });
     const adapter = new PrismaLibSQL(libsql);
     return new PrismaClient({
@@ -42,8 +20,14 @@ function createPrismaClient() {
     });
   }
 
+  if (!url?.startsWith("file:")) {
+    throw new Error(
+      "DATABASE_URL must be set — libsql:// for production (Turso) or file:... for local dev (.env.local).",
+    );
+  }
+
   return new PrismaClient({
-    datasources: { db: { url: resolveLocalDatabaseUrl() } },
+    datasources: { db: { url } },
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
 }
