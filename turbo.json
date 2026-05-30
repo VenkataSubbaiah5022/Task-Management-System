@@ -1,5 +1,13 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalPassThroughEnv": [
+    "DATABASE_URL",
+    "TURSO_AUTH_TOKEN",
+    "JWT_SECRET",
+    "NEXT_PUBLIC_APP_URL",
+    "VERCEL",
+    "VERCEL_ENV"
+  ],
   "tasks": {
     "dev": {
       "cache": false,
@@ -7,7 +15,13 @@
     },
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "dist/**"]
+      "outputs": [".next/**", "dist/**"],
+      "env": [
+        "DATABASE_URL",
+        "TURSO_AUTH_TOKEN",
+        "JWT_SECRET",
+        "NEXT_PUBLIC_APP_URL"
+      ]
     },
     "lint": {
       "dependsOn": ["^lint"]
