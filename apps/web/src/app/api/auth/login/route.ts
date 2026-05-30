@@ -4,6 +4,8 @@ import { prisma } from "@tms/db";
 import { loginSchema } from "@tms/shared";
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(request: Request) {
   try {
     const body = loginSchema.parse(await request.json());

@@ -5,6 +5,8 @@ import { prisma } from "@tms/db";
 import { moveTaskSchema } from "@tms/shared";
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 type RouteContext = { params: Promise<{ boardId: string }> };
 
 export async function PATCH(request: Request, context: RouteContext) {
