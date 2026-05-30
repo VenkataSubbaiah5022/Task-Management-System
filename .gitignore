@@ -12,6 +12,7 @@ dist
 .env
 .env.local
 .env.*.local
+.env.turso
 
 # debug
 npm-debug.log*
@@ -20,6 +21,7 @@ pnpm-debug.log*
 # sqlite
 packages/db/prisma/*.db
 packages/db/prisma/*.db-journal
+packages/db/turso-init.sql
 *.db
 *.db-journal
 

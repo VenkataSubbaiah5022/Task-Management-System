@@ -1,0 +1,6 @@
+# Copy into Vercel → Settings → Environment Variables (Production)
+
+DATABASE_URL=libsql://flowboard-teja6351.aws-ap-south-1.turso.io
+TURSO_AUTH_TOKEN=(use token from .env.turso — do not commit)
+JWT_SECRET=yyaSIgQ3BK3LV5ruOEAUksavYbzLcVYyMupsOh5psIY=
+NEXT_PUBLIC_APP_URL=https://YOUR-APP.vercel.app
